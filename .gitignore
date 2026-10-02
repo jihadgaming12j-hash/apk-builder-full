@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+storage/*
+!storage/.htaccess
+!.gitkeep
+!storage/config.example.php
+.apk-builder/
+__pycache__/
+*.py[cod]
+*.apk
+*.keystore
+*.jks
