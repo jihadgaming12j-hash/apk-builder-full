@@ -416,9 +416,15 @@ function startBuild(): void
     $sourceUrl = $mode === 'url'
         ? $websiteUrl
         : apiUrl('asset', ['id' => $jobId, 'type' => 'source', 'exp' => $expires, 'sig' => makeSignature($jobId, 'source', $expires)]);
-    $iconUrl = $iconPath !== null
-        ? apiUrl('asset', ['id' => $jobId, 'type' => 'icon', 'exp' => $expires, 'sig' => makeSignature($jobId, 'icon', $expires)])
-        : '';
+    $iconB64 = '';
+    if ($iconPath !== null) {
+        $iconBytes = (string) file_get_contents($iconPath);
+        $iconInfo = @getimagesizefromstring($iconBytes);
+        if (strlen($iconBytes) > 45000 || !is_array($iconInfo) || !in_array($iconInfo[2], [IMAGETYPE_PNG, IMAGETYPE_JPEG], true)) {
+            failRequest('আইকন সঠিক PNG/JPEG নয় বা অনেক বড়। অন্য আইকন দিন।');
+        }
+        $iconB64 = base64_encode($iconBytes);
+    }
 
     $job = [
         'id' => $jobId,
@@ -444,7 +450,7 @@ function startBuild(): void
                 'orientation' => $orientation,
                 'refresh' => $refresh ? 'true' : 'false',
                 'source_url' => $sourceUrl,
-                'icon_url' => $iconUrl,
+                'icon_b64' => $iconB64,
             ],
         ]);
     } catch (Throwable $error) {
