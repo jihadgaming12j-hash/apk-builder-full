@@ -39,8 +39,8 @@ on:
         description: Website URL or short-lived source file URL
         required: true
         type: string
-      icon_url:
-        description: Optional short-lived app icon URL
+      icon_b64:
+        description: Optional base64-encoded app icon (PNG/JPEG)
         required: false
         type: string
 
@@ -59,7 +59,7 @@ jobs:
       BUILD_ORIENTATION: ${{ inputs.orientation }}
       BUILD_REFRESH: ${{ inputs.refresh }}
       BUILD_SOURCE_URL: ${{ inputs.source_url }}
-      BUILD_ICON_URL: ${{ inputs.icon_url }}
+      BUILD_ICON_B64: ${{ inputs.icon_b64 }}
 
     steps:
       - name: Checkout
