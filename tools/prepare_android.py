@@ -25,6 +25,16 @@ MAX_UNZIPPED = 100 * 1024 * 1024
 MAX_ZIP_FILES = 5000
 
 
+def android_string(value: str) -> str:
+    """Escape text for an Android strings.xml resource (apostrophes, quotes, @, ?)."""
+    value = " ".join(value.split())
+    value = value.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"')
+    value = escape(value)
+    if value.startswith(("@", "?")):
+        value = "\\" + value
+    return value
+
+
 def required(name: str) -> str:
     value = os.environ.get(name, "").strip()
     if not value:
@@ -178,6 +188,12 @@ def main() -> None:
     if mode == "file":
         source_path = work / "source-upload"
         download(source_url, source_path)
+        head = source_path.read_bytes()[:4096]
+        if len(head) < 4096 and (b"aes.js" in head or b"__test" in head):
+            raise ValueError(
+                "The hosting provider returned an anti-bot challenge page instead of the uploaded file. "
+                "Use a host without this protection for build-api.php (or URL mode)."
+            )
         copy_site(source_path, mode, work)
     elif not source_url.startswith(("https://", "http://")):
         raise ValueError("Website URL must begin with HTTP or HTTPS.")
@@ -189,9 +205,9 @@ def main() -> None:
         "refresh": refresh,
     }
     (ASSETS / "app-config.json").write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
-    safe_name = escape(app_name)
+    safe_name = android_string(app_name)
     (OUTPUT / "app" / "src" / "main" / "res" / "values" / "strings.xml").write_text(
-        f'<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <string name="app_name">{safe_name}</string>\n</resources>\n',
+        f'<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <string name="app_name" formatted="false">{safe_name}</string>\n</resources>\n',
         encoding="utf-8",
     )
     shutil.rmtree(work, ignore_errors=True)
