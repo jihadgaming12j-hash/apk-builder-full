@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import os
 import shutil
@@ -137,11 +139,14 @@ def create_default_icon() -> Image.Image:
     return image
 
 
-def write_icons(icon_url: str, work: Path) -> None:
+def write_icons(icon_b64: str, work: Path) -> None:
     icon = create_default_icon()
-    if icon_url:
+    if icon_b64:
         source = work / "uploaded-icon"
-        download(icon_url, source, 1 * 1024 * 1024)
+        try:
+            source.write_bytes(base64.b64decode(icon_b64, validate=True))
+        except (binascii.Error, ValueError) as error:
+            raise ValueError("Uploaded app icon data is corrupted.") from error
         try:
             with Image.open(source) as opened:
                 icon = opened.convert("RGBA")
@@ -167,7 +172,7 @@ def main() -> None:
     orientation = required("BUILD_ORIENTATION")
     refresh = os.environ.get("BUILD_REFRESH", "false").lower() == "true"
     source_url = required("BUILD_SOURCE_URL")
-    icon_url = os.environ.get("BUILD_ICON_URL", "").strip()
+    icon_b64 = os.environ.get("BUILD_ICON_B64", "").strip()
     if mode not in ("url", "file"):
         raise ValueError("Build mode must be url or file.")
     if orientation not in ("portrait", "landscape", "unspecified"):
@@ -198,7 +203,7 @@ def main() -> None:
     elif not source_url.startswith(("https://", "http://")):
         raise ValueError("Website URL must begin with HTTP or HTTPS.")
 
-    write_icons(icon_url, work)
+    write_icons(icon_b64, work)
     config = {
         "mode": mode,
         "target": source_url if mode == "url" else "",
