@@ -1,0 +1,100 @@
+name: Build Android APK
+run-name: APK Build ${{ inputs.job_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: Unique build request ID
+        required: true
+        type: string
+      mode:
+        description: Website URL or uploaded HTML/ZIP
+        required: true
+        type: choice
+        options:
+          - url
+          - file
+      app_name:
+        description: Android app display name
+        required: true
+        type: string
+      package_name:
+        description: Android application ID
+        required: true
+        type: string
+      orientation:
+        description: Screen orientation
+        required: true
+        type: choice
+        options:
+          - portrait
+          - landscape
+          - unspecified
+      refresh:
+        description: Enable pull-to-refresh
+        required: true
+        type: boolean
+      source_url:
+        description: Website URL or short-lived source file URL
+        required: true
+        type: string
+      icon_url:
+        description: Optional short-lived app icon URL
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BUILD_JOB_ID: ${{ inputs.job_id }}
+      BUILD_MODE: ${{ inputs.mode }}
+      BUILD_APP_NAME: ${{ inputs.app_name }}
+      BUILD_PACKAGE_NAME: ${{ inputs.package_name }}
+      BUILD_ORIENTATION: ${{ inputs.orientation }}
+      BUILD_REFRESH: ${{ inputs.refresh }}
+      BUILD_SOURCE_URL: ${{ inputs.source_url }}
+      BUILD_ICON_URL: ${{ inputs.icon_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Install icon processor
+        run: python3 -m pip install --user Pillow
+
+      - name: Prepare app source
+        run: python3 tools/prepare_android.py
+
+      - name: Build APK
+        run: gradle -p .apk-builder/android assembleDebug -PappId="$BUILD_PACKAGE_NAME" -PscreenOrientation="$BUILD_ORIENTATION" --no-daemon --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ inputs.job_id }}
+          path: .apk-builder/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
