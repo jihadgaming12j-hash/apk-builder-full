@@ -1338,7 +1338,7 @@
           if (d.state === 'done') { stop = true; buildFinished(d.url); }
           else if (d.state === 'failed') {
             stop = true;
-            modalError('বিল্ডে সমস্যা হয়েছে। লিংক/ফাইল ঠিক আছে কিনা দেখে আবার চেষ্টা করুন।');
+            modalError((d.error ? d.error + ' ' : '') + 'বিল্ডে সমস্যা হয়েছে। লিংক/ফাইল ঠিক আছে কিনা দেখে আবার চেষ্টা করুন।');
           } else if (Date.now() - startedAt > 15 * 60 * 1000) {
             stop = true;
             modalError('অনেক সময় লাগছে, একটু পরে আবার চেষ্টা করুন।');
