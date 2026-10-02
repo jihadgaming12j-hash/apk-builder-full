@@ -1329,7 +1329,8 @@
               doneCount++;
               if (!seen[st.name + ':c']) {
                 seen[st.name + ':c'] = 1;
-                consoleLine('> ✓ ' + st.name, st.conclusion === 'success' ? 'success' : '');
+                const okStep = st.conclusion === 'success';
+                consoleLine('> ' + (okStep ? '✓ ' : (st.conclusion === 'skipped' ? '– ' : '✗ ')) + st.name + (okStep ? '' : ' (' + st.conclusion + ')'), okStep ? 'success' : '');
               }
             }
           });
@@ -1369,20 +1370,50 @@
     }
   }
 
-  function addIcon(form, fd) {
+  async function iconToPng(file) {
+    const objUrl = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error('icon decode failed'));
+        i.src = objUrl;
+      });
+      for (const size of [192, 144, 96]) {
+        const c = document.createElement('canvas');
+        c.width = c.height = size;
+        const ratio = Math.min(size / img.width, size / img.height);
+        const w = img.width * ratio, h = img.height * ratio;
+        c.getContext('2d').drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+        if (blob && blob.size <= 40000) return blob;
+      }
+      return null;
+    } finally {
+      URL.revokeObjectURL(objUrl);
+    }
+  }
+
+  async function addIcon(form, fd) {
     const icon = form.querySelector('input[type=file][accept^="image"]');
     if (icon && icon.files && icon.files[0]) {
-      if (icon.files[0].size > 1 * 1024 * 1024) {
-        toast('আইকন সর্বোচ্চ ১ MB হতে পারবে');
+      if (icon.files[0].size > 5 * 1024 * 1024) {
+        toast('আইকন সর্বোচ্চ ৫ MB হতে পারবে');
         return false;
       }
-      fd.append('icon', icon.files[0]);
+      let blob = null;
+      try { blob = await iconToPng(icon.files[0]); } catch (e) {}
+      if (!blob) {
+        toast('আইকন পড়া যায়নি, অন্য PNG/JPG দিন');
+        return false;
+      }
+      fd.append('icon', blob, 'icon.png');
     }
     return true;
   }
 
   // Form Submissions
-  $('urlApkForm').addEventListener('submit', e => {
+  $('urlApkForm').addEventListener('submit', async e => {
     e.preventDefault();
     const name = $('urlAppName').value.trim();
     const url = $('webUrl').value.trim();
@@ -1400,11 +1431,11 @@
     const o = $('urlOrient').value;
     fd.append('orientation', o === 'auto' ? 'unspecified' : o);
     fd.append('refresh', $('urlRefresh').checked ? '1' : '0');
-    if (!addIcon(e.target, fd)) return;
+    if (!(await addIcon(e.target, fd))) return;
     startRealBuild(fd, name);
   });
 
-  $('fileApkForm').addEventListener('submit', e => {
+  $('fileApkForm').addEventListener('submit', async e => {
     e.preventDefault();
     const name = $('fileAppName').value.trim();
     const file = $('sourceFile').files[0];
@@ -1420,7 +1451,7 @@
     fd.append('orientation', 'unspecified');
     fd.append('refresh', '0');
     fd.append('source', file);
-    if (!addIcon(e.target, fd)) return;
+    if (!(await addIcon(e.target, fd))) return;
     startRealBuild(fd, name);
   });
 
